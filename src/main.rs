@@ -39,8 +39,8 @@ fn model(app: &App) -> Model {
 
     let img_data = include_bytes!("../assets/dvd_logo.png");
     let image = change_color(&image::load_from_memory(img_data).unwrap().thumbnail(
-        app.window_rect().w() as u32 / 6,
-        app.window_rect().h() as u32 / 6,
+        app.window_rect().w() as u32 / 7,
+        app.window_rect().h() as u32 / 7,
     ));
     let rect = Rect::from_x_y_w_h(
         0.0,
@@ -52,8 +52,7 @@ fn model(app: &App) -> Model {
     Model {
         image,
         dvd_rect: rect,
-        // Velocity is in pixels per second.
-        dvd_vel: Vec2::new(50.0, 50.0),
+        dvd_vel: Vec2::new(300.0, 300.0),
         m_pos: None,
     }
 }
@@ -82,17 +81,31 @@ fn update(app: &App, model: &mut Model, _update: Update) {
     let delta_time = app.duration.since_prev_update.secs() as f32;
     let dvd_vel = &mut model.dvd_vel;
 
-    model.dvd_rect = model
-        .dvd_rect
-        .shift_x(dvd_vel.x * delta_time)
-        .shift_y(dvd_vel.y * delta_time);
+    // Cap movement per frame to prevent overshooting
+    let max_step = 10.0;
+    let step_x = (dvd_vel.x * delta_time).clamp(-max_step, max_step);
+    let step_y = (dvd_vel.y * delta_time).clamp(-max_step, max_step);
 
-    if model.dvd_rect.left() <= win.left() || model.dvd_rect.right() >= win.right() {
-        dvd_vel.x = -dvd_vel.x;
+    model.dvd_rect = model.dvd_rect.shift_x(step_x).shift_y(step_y);
+
+    // Collision detection and manual repositioning
+    if model.dvd_rect.left() <= win.left() {
+        dvd_vel.x = dvd_vel.x.abs(); // Move right
+        model.dvd_rect = model.dvd_rect.shift_x(win.left() - model.dvd_rect.left());
+        model.image = change_color(&model.image);
+    } else if model.dvd_rect.right() >= win.right() {
+        dvd_vel.x = -dvd_vel.x.abs(); // Move left
+        model.dvd_rect = model.dvd_rect.shift_x(win.right() - model.dvd_rect.right());
         model.image = change_color(&model.image);
     }
-    if model.dvd_rect.bottom() <= win.bottom() || model.dvd_rect.top() >= win.top() {
-        dvd_vel.y = -dvd_vel.y;
+
+    if model.dvd_rect.bottom() <= win.bottom() {
+        dvd_vel.y = dvd_vel.y.abs(); // Move up
+        model.dvd_rect = model.dvd_rect.shift_y(win.bottom() - model.dvd_rect.bottom());
+        model.image = change_color(&model.image);
+    } else if model.dvd_rect.top() >= win.top() {
+        dvd_vel.y = -dvd_vel.y.abs(); // Move down
+        model.dvd_rect = model.dvd_rect.shift_y(win.top() - model.dvd_rect.top());
         model.image = change_color(&model.image);
     }
 }
